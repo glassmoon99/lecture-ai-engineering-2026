@@ -5,10 +5,13 @@
 """
 
 import json
+import random
+from datetime import datetime
 from functools import cache
 from pathlib import Path
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+LEARNING_LOG_DIR = DATA_DIR.parent / "learning_log"
 MAX_RESULTS = 3
 
 
@@ -79,15 +82,47 @@ def get_lecture_summary(lecture: int) -> str:
     return path.read_text(encoding="utf-8")
 
 # 演習で追加
+import random
 def make_quiz(lecture: int) -> str:
-    """指定した回の用語から 1つを選び、
-    確認問題と答えを返す。
-    「第2回の確認問題を出して」のように、
-    復習用の問題を求められたときに使う。
     """
+     指定した回の用語から 1つを選び、確認問題と答えを返す。
+    「第2回の確認問題を出して」のように、復習用の問題を求められたときに使う。
+     問題文を記載した後に、ヒントも記載する。
+    """
+    # （追加）問題文を記載した後に、ヒントも記載する。
+
+    terms = [
+        entry for entry in load_glossary()
+        if entry["lecture"] == lecture
+    ]
+
+    if not terms:
+        return json.dumps(
+            {"error": f"第{lecture}回の用語が見つかりません。"},
+            ensure_ascii=False,
+        )
+
+    entry = random.choice(terms)
+    quiz = {
+        "question": f"「{entry['term']}」とは何ですか？",
+        "answer": entry["definition"],
+        "hint": f"「{entry.get('category', '講義の用語')}」に関する言葉です。",
+    }
+    return json.dumps(quiz, ensure_ascii=False)
 # 1. load_glossary() から lecture が一致する用語を集める
 # 2. 1 つ選ぶ（random.choice ）
 # 3. 問題と答えを文字列で返す（ json.dumps など）
-    {"question":"「ハーネス」の意味は？", 
-     "answer": "LLMの周りを、ループ・ツール・画面（UI）などで包み、実際に作業できるようにするプログラム。Claude CodeやPiはハーネスの例。Piは組み込みツールをread・write・edit・bashの4つに絞った薄いハーネスとして知られる。"
-     }
+    # {"question":"「ハーネス」の意味は？", 
+    #  "answer": "LLMの周りを、ループ・ツール・画面（UI）などで包み、実際に作業できるようにするプログラム。Claude CodeやPiはハーネスの例。Piは組み込みツールをread・write・edit・bashの4つに絞った薄いハーネスとして知られる。"
+    #  }
+
+def save_learning_log(content: str) -> str:
+    """利用者が学習内容の保存を求めたとき、learning_log/ に Markdown で保存する。"""
+    if not content.strip():
+        return "保存する学習内容が空です。"
+
+    LEARNING_LOG_DIR.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now().astimezone().strftime("%Y%m%d-%H%M%S-%f")
+    path = LEARNING_LOG_DIR / f"{timestamp}.md"
+    path.write_text(content.rstrip() + "\n", encoding="utf-8")
+    return f"学習ログを {path.name} に保存しました。"
